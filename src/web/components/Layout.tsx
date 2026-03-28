@@ -12,6 +12,9 @@ export default function Layout({ children }: Props) {
   const tr = useT(lang);
   const [location, navigate] = useLocation();
 
+  // Главная, Тренировка, Рейтинг, Экзамен, Чат, Профиль
+  // Рейтинг и Экзамен оставляем — они ОСНОВНЫЕ разделы, не дубли
+  // Дубли были на главной (быстрый доступ) — их убрали
   const navItems = [
     { path: "/", icon: Home, label: tr("nav.home") },
     { path: "/training", icon: BookOpen, label: tr("nav.training") },

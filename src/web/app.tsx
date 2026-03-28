@@ -13,6 +13,7 @@ import CreateTestPage from "./pages/createTest";
 import EditTestPage from "./pages/editTest";
 import ImportTestPage from "./pages/importTest";
 import RatingPage from "./pages/rating";
+import RatingResultsPage from "./pages/ratingResults";
 import ExamPage from "./pages/exam";
 import ChatPage from "./pages/chat";
 import ProfilePage from "./pages/profile";
@@ -56,6 +57,7 @@ function App() {
           <Route path="/tests/edit/:id" component={() => <ProtectedRoute component={EditTestPage} />} />
           <Route path="/tests/import" component={() => <ProtectedRoute component={ImportTestPage} />} />
           <Route path="/rating" component={() => <ProtectedRoute component={RatingPage} />} />
+          <Route path="/rating-results" component={() => <ProtectedRoute component={RatingResultsPage} />} />
           <Route path="/exam" component={() => <ProtectedRoute component={ExamPage} />} />
           <Route path="/chat" component={() => <ProtectedRoute component={ChatPage} />} />
           <Route path="/profile" component={() => <ProtectedRoute component={ProfilePage} />} />
@@ -75,7 +77,7 @@ function App() {
           }}
         />
         {import.meta.env.DEV && <AgentFeedback />}
-        {<RunableBadge />}
+        {/* RunableBadge removed */}
       </div>
     </Provider>
   );
