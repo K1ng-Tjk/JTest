@@ -3,26 +3,40 @@ import { useStore } from "../store/useStore";
 import { useT } from "../lib/i18n";
 import { api } from "../lib/api";
 import { useLocation } from "wouter";
-import { BookOpen, Trophy, GraduationCap, Plus, Shield, Wifi, WifiOff, FileUp } from "lucide-react";
+import { BookOpen, Plus, Shield, Wifi, WifiOff, FileUp, MessageCircle } from "lucide-react";
 
 export default function HomePage() {
   const { user, lang, theme, isOnline } = useStore();
   const tr = useT(lang);
   const [, navigate] = useLocation();
-  const [stats, setStats] = useState({ total: 0, completed: 0, avgScore: 0 });
+  const [stats, setStats] = useState({ myTests: 0, completed: 0, avgScore: 0 });
 
   useEffect(() => {
     if (!user) return;
-    api.getSessions({ userId: user.id }).then((res: any) => {
-      if (res.sessions) {
-        const completed = res.sessions.filter((s: any) => s.status === "completed");
-        const avg = completed.length
-          ? completed.reduce((sum: number, s: any) => sum + (s.score || 0), 0) / completed.length
-          : 0;
-        setStats({ total: res.sessions.length, completed: completed.length, avgScore: Math.round(avg) });
-      }
-    });
+    loadStats();
   }, [user]);
+
+  async function loadStats() {
+    const [testsRes, sessionsRes] = await Promise.all([
+      api.getTests({ userId: user!.id }),
+      api.getSessions({ userId: user!.id }),
+    ]) as any[];
+
+    // Мои тесты — только те что я создал
+    const myTests = (testsRes.tests || []).filter((t: any) => t.authorId === user!.id);
+
+    // Завершённые сессии
+    const completed = (sessionsRes.sessions || []).filter((s: any) => s.status === "completed");
+    const avg = completed.length
+      ? completed.reduce((sum: number, s: any) => sum + (s.score || 0), 0) / completed.length
+      : 0;
+
+    setStats({
+      myTests: myTests.length,
+      completed: completed.length,
+      avgScore: Math.round(avg),
+    });
+  }
 
   if (!user) return null;
 
@@ -71,35 +85,57 @@ export default function HomePage() {
         </span>
       </div>
 
-      {/* Stats */}
+      {/* Stats — правильный счётчик */}
       <div className="grid grid-cols-3 gap-3 mb-6">
-        {[
-          { label: tr("home.totalTests"), value: stats.total, icon: "📝" },
-          { label: tr("home.completed"), value: stats.completed, icon: "✅" },
-          { label: tr("home.avgScore"), value: stats.avgScore + "%", icon: "⭐" },
-        ].map((s) => (
-          <div key={s.label} className="rounded-2xl p-3 text-center card-glow"
-            style={{ background: "var(--card)", border: "1px solid var(--border)" }}>
-            <div className="text-xl mb-1">{s.icon}</div>
-            <div className="text-lg font-black" style={{ color: "var(--primary)" }}>{s.value}</div>
-            <div className="text-[9px] leading-tight" style={{ color: "var(--muted-foreground)" }}>{s.label}</div>
-          </div>
-        ))}
+        <StatCard
+          icon="📚"
+          value={stats.myTests}
+          label={lang === "ru" ? "Моих тестов" : lang === "tj" ? "Тестҳоям" : "My tests"}
+          color="var(--primary)"
+        />
+        <StatCard
+          icon="✅"
+          value={stats.completed}
+          label={lang === "ru" ? "Пройдено" : lang === "tj" ? "Гузаштааст" : "Completed"}
+          color="#34D399"
+        />
+        <StatCard
+          icon="⭐"
+          value={stats.avgScore + "%"}
+          label={lang === "ru" ? "Средний балл" : lang === "tj" ? "Миёна" : "Avg score"}
+          color="#FBBF24"
+        />
       </div>
 
-      {/* Quick actions */}
+      {/* Quick actions — только тренировка, импорт, создать, чат */}
       <h2 className="text-xs font-bold mb-3 uppercase tracking-wider" style={{ color: "var(--muted-foreground)" }}>
-        {lang === "ru" ? "Быстрый старт" : lang === "tj" ? "Оғози зуд" : "Quick start"}
+        {lang === "ru" ? "Быстрый доступ" : lang === "tj" ? "Дастрасии зуд" : "Quick access"}
       </h2>
       <div className="grid grid-cols-2 gap-3 mb-6">
-        <ActionCard icon={<BookOpen size={22} />} label={tr("nav.training")} color="var(--primary)"
-          onClick={() => navigate("/training")} />
-        <ActionCard icon={<Trophy size={22} />} label={tr("nav.rating")} color="#60A5FA"
-          onClick={() => navigate("/rating")} />
-        <ActionCard icon={<GraduationCap size={22} />} label={tr("nav.exam")} color="#A78BFA"
-          onClick={() => navigate("/exam")} />
-        <ActionCard icon={<FileUp size={22} />} label={tr("import.title")} color="#34D399"
-          onClick={() => navigate("/tests/import")} />
+        <ActionCard
+          icon={<BookOpen size={22} />}
+          label={lang === "ru" ? "Тренировка" : lang === "tj" ? "Машқ" : "Training"}
+          color="var(--primary)"
+          onClick={() => navigate("/training")}
+        />
+        <ActionCard
+          icon={<Plus size={22} />}
+          label={lang === "ru" ? "Создать тест" : lang === "tj" ? "Тест созтан" : "Create test"}
+          color="#34D399"
+          onClick={() => navigate("/tests/create")}
+        />
+        <ActionCard
+          icon={<FileUp size={22} />}
+          label={lang === "ru" ? "Импорт тестов" : lang === "tj" ? "Импорт" : "Import"}
+          color="#60A5FA"
+          onClick={() => navigate("/tests/import")}
+        />
+        <ActionCard
+          icon={<MessageCircle size={22} />}
+          label={lang === "ru" ? "Чаты" : lang === "tj" ? "Суҳбат" : "Chats"}
+          color="#A78BFA"
+          onClick={() => navigate("/chat")}
+        />
       </div>
 
       {/* Footer */}
@@ -112,6 +148,17 @@ export default function HomePage() {
           <span className="text-xs" style={{ color: "var(--muted-foreground)" }}>+992 917 971 000</span>
         </div>
       </footer>
+    </div>
+  );
+}
+
+function StatCard({ icon, value, label, color }: any) {
+  return (
+    <div className="rounded-2xl p-3 text-center card-glow"
+      style={{ background: "var(--card)", border: "1px solid var(--border)" }}>
+      <div className="text-xl mb-1">{icon}</div>
+      <div className="text-lg font-black" style={{ color }}>{value}</div>
+      <div className="text-[9px] leading-tight mt-0.5" style={{ color: "var(--muted-foreground)" }}>{label}</div>
     </div>
   );
 }
