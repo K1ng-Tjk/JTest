@@ -1,6 +1,5 @@
 import { sqliteTable, text, integer, real } from "drizzle-orm/sqlite-core";
 
-// Users table
 export const users = sqliteTable("users", {
   id: text("id").primaryKey(),
   phone: text("phone").notNull().unique(),
@@ -8,43 +7,40 @@ export const users = sqliteTable("users", {
   firstName: text("first_name").notNull(),
   lastName: text("last_name").notNull(),
   middleName: text("middle_name"),
-  gender: text("gender"), // male | female
+  gender: text("gender"),
   birthDate: text("birth_date"),
   email: text("email"),
-  photo: text("photo"),
-  role: text("role").notNull().default("user"), // admin | manager | user | student
+  photo: text("photo"), // base64 or URL
+  role: text("role").notNull().default("user"),
   isBanned: integer("is_banned", { mode: "boolean" }).default(false),
   banReason: text("ban_reason"),
   createdAt: integer("created_at").notNull(),
   lastSeen: integer("last_seen"),
 });
 
-// Tests table
 export const tests = sqliteTable("tests", {
   id: text("id").primaryKey(),
   title: text("title").notNull(),
   description: text("description"),
   authorId: text("author_id").notNull(),
-  type: text("type").notNull().default("training"), // training | rating1 | rating2 | exam
-  scope: text("scope").notNull().default("personal"), // personal | shared
-  status: text("status").notNull().default("pending"), // pending | approved | rejected
-  timeLimit: integer("time_limit"), // minutes
+  type: text("type").notNull().default("training"),
+  scope: text("scope").notNull().default("personal"),
+  status: text("status").notNull().default("pending"),
+  timeLimit: integer("time_limit"),
   passingScore: real("passing_score").default(60),
   createdAt: integer("created_at").notNull(),
   updatedAt: integer("updated_at").notNull(),
 });
 
-// Questions table
 export const questions = sqliteTable("questions", {
   id: text("id").primaryKey(),
   testId: text("test_id").notNull(),
   text: text("text").notNull(),
-  type: text("type").notNull().default("single"), // single | multiple
+  type: text("type").notNull().default("single"),
   order: integer("order").notNull().default(0),
   explanation: text("explanation"),
 });
 
-// Answers table
 export const answers = sqliteTable("answers", {
   id: text("id").primaryKey(),
   questionId: text("question_id").notNull(),
@@ -53,7 +49,6 @@ export const answers = sqliteTable("answers", {
   order: integer("order").notNull().default(0),
 });
 
-// Test sessions (attempts)
 export const testSessions = sqliteTable("test_sessions", {
   id: text("id").primaryKey(),
   userId: text("user_id").notNull(),
@@ -61,18 +56,17 @@ export const testSessions = sqliteTable("test_sessions", {
   score: real("score"),
   totalQuestions: integer("total_questions"),
   correctAnswers: integer("correct_answers"),
-  status: text("status").notNull().default("in_progress"), // in_progress | completed | expired
+  status: text("status").notNull().default("in_progress"),
   startedAt: integer("started_at").notNull(),
   completedAt: integer("completed_at"),
-  answers: text("answers"), // JSON
+  answers: text("answers"),
 });
 
-// Chat messages
 export const messages = sqliteTable("messages", {
   id: text("id").primaryKey(),
-  chatType: text("chat_type").notNull(), // general | private | admin
+  chatType: text("chat_type").notNull(),
   senderId: text("sender_id").notNull(),
-  receiverId: text("receiver_id"), // for private chats
+  receiverId: text("receiver_id"),
   text: text("text"),
   attachment: text("attachment"),
   isDeleted: integer("is_deleted", { mode: "boolean" }).default(false),
@@ -80,23 +74,34 @@ export const messages = sqliteTable("messages", {
   createdAt: integer("created_at").notNull(),
 });
 
-// Ratings
 export const ratings = sqliteTable("ratings", {
   id: text("id").primaryKey(),
   userId: text("user_id").notNull(),
   testId: text("test_id").notNull(),
-  ratingType: text("rating_type").notNull(), // rating1 | rating2
+  ratingType: text("rating_type").notNull(),
   score: real("score").notNull(),
-  grade: text("grade"), // A B C D F
+  grade: text("grade"),
   position: integer("position"),
   createdAt: integer("created_at").notNull(),
 });
 
-// Exam resets
 export const examResets = sqliteTable("exam_resets", {
   id: text("id").primaryKey(),
   userId: text("user_id").notNull(),
   testId: text("test_id").notNull(),
-  resetBy: text("reset_by").notNull(), // admin id
+  resetBy: text("reset_by").notNull(),
   resetAt: integer("reset_at").notNull(),
+});
+
+// Запросы на пересдачу (от пользователей)
+export const retakeRequests = sqliteTable("retake_requests", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  testId: text("test_id").notNull(),
+  testType: text("test_type").notNull(), // exam | rating1 | rating2
+  reason: text("reason"),
+  status: text("status").notNull().default("pending"), // pending | approved | rejected
+  requestedAt: integer("requested_at").notNull(),
+  reviewedAt: integer("reviewed_at"),
+  reviewedBy: text("reviewed_by"),
 });

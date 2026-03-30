@@ -29,8 +29,7 @@ export default function TestSessionPage() {
   const [finished, setFinished] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [showAnswer, setShowAnswer] = useState(false); // после ответа показать правильный
-  const [answered, setAnswered] = useState<Record<string, boolean>>({}); // qId -> показан ли результат
+  const [answered, setAnswered] = useState<Record<string, boolean>>({}); // qId -> подтверждён
 
   // Read ?limit= from URL for training mode
   const urlLimit = parseInt(new URLSearchParams(window.location.search).get("limit") || "0") || 0;
@@ -261,8 +260,49 @@ export default function TestSessionPage() {
         )}
       </div>
 
+      {/* Question number grid — прыгать по вопросам */}
+      <div className="px-4 pb-2">
+        <div className="flex flex-wrap gap-1.5">
+          {questions.map((_, idx) => {
+            const qid = questions[idx].id;
+            const isConf = !!answered[qid];   // подтверждён
+            const hasSel = !!(selected[qid]?.length); // выбран но не подтверждён
+            const isCur = idx === current;
+            return (
+              <button key={idx} onClick={() => setCurrent(idx)}
+                className="w-8 h-8 rounded-lg text-xs font-bold transition-all active:scale-90"
+                style={{
+                  background: isCur
+                    ? "var(--primary)"
+                    : isConf
+                    ? "rgba(52,211,153,0.2)"
+                    : hasSel
+                    ? "rgba(212,160,23,0.15)"
+                    : "var(--secondary)",
+                  color: isCur
+                    ? "var(--primary-foreground)"
+                    : isConf
+                    ? "#34D399"
+                    : hasSel
+                    ? "var(--primary)"
+                    : "var(--muted-foreground)",
+                  border: isCur
+                    ? "2px solid var(--primary)"
+                    : isConf
+                    ? "1px solid #34D39940"
+                    : hasSel
+                    ? "1px solid var(--primary)40"
+                    : "1px solid var(--border)",
+                }}>
+                {idx + 1}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Bottom nav */}
-      <div className="sticky bottom-0 px-4 py-4 flex gap-3" style={{ background: "var(--background)", borderTop: "1px solid var(--border)" }}>
+      <div className="sticky bottom-0 px-4 py-3 flex gap-3" style={{ background: "var(--background)", borderTop: "1px solid var(--border)" }}>
         <button onClick={() => setCurrent(c => Math.max(0, c - 1))} disabled={current === 0}
           className="w-12 h-12 rounded-xl flex items-center justify-center"
           style={{ background: "var(--secondary)", opacity: current === 0 ? 0.4 : 1 }}>
@@ -270,20 +310,16 @@ export default function TestSessionPage() {
         </button>
 
         {!isAnswered ? (
-          // Подтвердить ответ
           <button onClick={confirmAnswer}
             disabled={!selected[q.id]?.length}
             className="flex-1 h-12 rounded-xl font-bold text-sm transition-all active:scale-95"
             style={{
-              background: selected[q.id]?.length
-                ? "linear-gradient(135deg, var(--primary), var(--accent))"
-                : "var(--secondary)",
+              background: selected[q.id]?.length ? "linear-gradient(135deg, var(--primary), var(--accent))" : "var(--secondary)",
               color: selected[q.id]?.length ? "var(--primary-foreground)" : "var(--muted-foreground)",
             }}>
             Подтвердить
           </button>
         ) : (
-          // Следующий / Завершить
           current < questions.length - 1 ? (
             <button onClick={nextQuestion}
               className="flex-1 h-12 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all active:scale-95"

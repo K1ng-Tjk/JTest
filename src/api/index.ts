@@ -577,4 +577,79 @@ app.get("/api/exam-resets", async (c) => {
   }
 });
 
+// ===================== RETAKE REQUESTS =====================
+
+// User requests retake
+app.post("/api/retake-requests", async (c) => {
+  try {
+    const { userId, testId, testType, reason } = await c.req.json();
+    const d = db(c);
+    // Check no pending request already
+    const existing = await d.select().from(schema.retakeRequests);
+    const dup = existing.find(r => r.userId === userId && r.testId === testId && r.status === "pending");
+    if (dup) return c.json({ error: "Запрос уже отправлен, ожидайте" }, 400);
+
+    const id = genId();
+    await d.insert(schema.retakeRequests).values({
+      id, userId, testId, testType: testType || "exam",
+      reason: reason || null,
+      status: "pending",
+      requestedAt: now(),
+    });
+    return c.json({ id });
+  } catch (e: any) {
+    return c.json({ error: e.message }, 500);
+  }
+});
+
+// Get all retake requests (admin) or user's own
+app.get("/api/retake-requests", async (c) => {
+  try {
+    const userId = c.req.query("userId");
+    const status = c.req.query("status");
+    const d = db(c);
+    let reqs = await d.select().from(schema.retakeRequests);
+    if (userId) reqs = reqs.filter(r => r.userId === userId);
+    if (status) reqs = reqs.filter(r => r.status === status);
+    reqs.sort((a, b) => b.requestedAt - a.requestedAt);
+    return c.json({ requests: reqs });
+  } catch (e: any) {
+    return c.json({ error: e.message }, 500);
+  }
+});
+
+// Admin approves or rejects retake request
+app.put("/api/retake-requests/:id", async (c) => {
+  try {
+    const id = c.req.param("id");
+    const { status, reviewedBy } = await c.req.json(); // approved | rejected
+    const d = db(c);
+
+    const req = await d.select().from(schema.retakeRequests).where(eq(schema.retakeRequests.id, id)).get();
+    if (!req) return c.json({ error: "Запрос не найден" }, 404);
+
+    await d.update(schema.retakeRequests).set({
+      status,
+      reviewedAt: now(),
+      reviewedBy: reviewedBy || null,
+    }).where(eq(schema.retakeRequests.id, id));
+
+    // If approved — create an exam reset so user can retake
+    if (status === "approved") {
+      await d.insert(schema.examResets).values({
+        id: genId(),
+        userId: req.userId,
+        testId: req.testId,
+        resetBy: reviewedBy || "admin",
+        resetAt: now(),
+      });
+    }
+
+    return c.json({ success: true });
+  } catch (e: any) {
+    return c.json({ error: e.message }, 500);
+  }
+});
+
 export default app;
+

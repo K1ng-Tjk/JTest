@@ -59,4 +59,14 @@ export const api = {
     const qs = "?" + new URLSearchParams(params).toString();
     return request("GET", `/exam-resets${qs}`);
   },
+
+  // Retake requests
+  requestRetake: (userId: string, testId: string, testType: string, reason?: string) =>
+    request("POST", "/retake-requests", { userId, testId, testType, reason }),
+  getRetakeRequests: (params?: Record<string, string>) => {
+    const qs = params ? "?" + new URLSearchParams(params).toString() : "";
+    return request("GET", `/retake-requests${qs}`);
+  },
+  reviewRetake: (id: string, status: "approved" | "rejected", reviewedBy: string) =>
+    request("PUT", `/retake-requests/${id}`, { status, reviewedBy }),
 };

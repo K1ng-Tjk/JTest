@@ -3,7 +3,8 @@ import { useStore } from "../store/useStore";
 import { useT } from "../lib/i18n";
 import { api } from "../lib/api";
 import { useLocation } from "wouter";
-import { Trophy, ChevronRight, Clock, CheckCircle, BarChart2 } from "lucide-react";
+import { Trophy, ChevronRight, Clock, CheckCircle, BarChart2, RefreshCw, Send, Lock } from "lucide-react";
+import { toast } from "sonner";
 
 export default function RatingPage() {
   const { user, lang, theme } = useStore();
@@ -12,28 +13,48 @@ export default function RatingPage() {
   const [tab, setTab] = useState<"rating1" | "rating2">("rating1");
   const [tests, setTests] = useState<any[]>([]);
   const [sessions, setSessions] = useState<any[]>([]);
+  const [resets, setResets] = useState<any[]>([]);
+  const [myRequests, setMyRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [requesting, setRequesting] = useState<string | null>(null);
+  const [reason, setReason] = useState("");
 
   useEffect(() => { loadData(); }, [tab]);
 
   async function loadData() {
     if (!user) return;
     setLoading(true);
-    const [testsRes, sessionsRes] = await Promise.all([
+    const [testsRes, sessionsRes, resetsRes, reqRes] = await Promise.all([
       api.getTests({ type: tab }),
       api.getSessions({ userId: user.id }),
+      api.getExamResets({ userId: user.id }),
+      api.getRetakeRequests({ userId: user.id }),
     ]) as any[];
 
     setTests((testsRes.tests || []).filter((t: any) => t.status === "approved"));
     setSessions((sessionsRes.sessions || []).filter((s: any) => s.status === "completed"));
+    setResets(resetsRes.resets || []);
+    setMyRequests(reqRes.requests || []);
     setLoading(false);
   }
 
-  // Лучший результат по тесту
   function getBestSession(testId: string) {
-    const testSessions = sessions.filter(s => s.testId === testId);
-    if (!testSessions.length) return null;
-    return testSessions.reduce((best, s) => (s.score > best.score ? s : best));
+    const ts = sessions.filter(s => s.testId === testId);
+    if (!ts.length) return null;
+    return ts.reduce((best, s) => (s.score > best.score ? s : best));
+  }
+
+  function getRequestStatus(testId: string) {
+    const req = myRequests.filter(r => r.testId === testId).sort((a: any, b: any) => b.requestedAt - a.requestedAt)[0];
+    return req?.status || null;
+  }
+
+  async function sendRequest(testId: string) {
+    if (!user) return;
+    const res: any = await api.requestRetake(user.id, testId, tab, reason.trim() || undefined);
+    if (res.error) { toast.error(res.error); return; }
+    toast.success("Запрос отправлен администратору");
+    setRequesting(null); setReason(""); loadData();
   }
 
   function getGrade(score: number) {
@@ -186,19 +207,53 @@ export default function RatingPage() {
                     </div>
                   )}
 
-                  {/* Start button */}
-                  <button onClick={() => navigate(`/test/${test.id}`)}
+                  {/* Пересдача: рейтинг можно сдать повторно только с разрешения */}
+                  {best && (() => {
+                    const reqStatus = getRequestStatus(test.id);
+                    const isReq = requesting === test.id;
+                    return (
+                      <div className="mb-3">
+                        {reqStatus === "pending" ? (
+                          <div className="rounded-xl px-3 py-2 text-xs flex items-center gap-2"
+                            style={{ background: "rgba(251,191,36,0.1)", color: "#FBBF24" }}>
+                            <RefreshCw size={11} /> Запрос на пересдачу ожидает...
+                          </div>
+                        ) : isReq ? (
+                          <div className="flex flex-col gap-2">
+                            <textarea value={reason} onChange={e => setReason(e.target.value)}
+                              placeholder="Причина (по желанию)..." rows={2}
+                              className="w-full rounded-xl px-3 py-2 text-xs border outline-none resize-none"
+                              style={{ background: "var(--input)", color: "var(--foreground)", borderColor: "var(--border)" }} />
+                            <div className="flex gap-2">
+                              <button onClick={() => { setRequesting(null); setReason(""); }}
+                                className="flex-1 py-2 rounded-xl text-xs" style={{ background: "var(--secondary)" }}>Отмена</button>
+                              <button onClick={() => sendRequest(test.id)}
+                                className="flex-1 py-2 rounded-xl text-xs flex items-center justify-center gap-1"
+                                style={{ background: "var(--primary)20", color: "var(--primary)" }}>
+                                <Send size={11} /> Отправить
+                              </button>
+                            </div>
+                          </div>
+                        ) : reqStatus !== "pending" && (
+                          <button onClick={() => setRequesting(test.id)}
+                            className="w-full py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5"
+                            style={{ background: "var(--secondary)", color: "var(--primary)" }}>
+                            <RefreshCw size={11} /> Запросить пересдачу
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })()}
+
+                  <button onClick={() => !best && navigate(`/test/${test.id}`)}
+                    disabled={!!best}
                     className="w-full py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-all active:scale-95"
                     style={{
-                      background: best
-                        ? "var(--secondary)"
-                        : "linear-gradient(135deg, var(--primary), var(--accent))",
-                      color: best ? "var(--foreground)" : "var(--primary-foreground)",
+                      background: best ? "var(--secondary)" : "linear-gradient(135deg, var(--primary), var(--accent))",
+                      color: best ? "var(--muted-foreground)" : "var(--primary-foreground)",
+                      cursor: best ? "not-allowed" : "pointer",
                     }}>
-                    {best
-                      ? (lang === "ru" ? "Пересдать" : "Аз нав")
-                      : (lang === "ru" ? "Начать" : "Оғоз кардан")}
-                    <ChevronRight size={16} />
+                    {best ? <><Lock size={14} /> Завершён</> : <>{lang === "ru" ? "Начать" : "Оғоз кардан"} <ChevronRight size={16} /></>}
                   </button>
                 </div>
               </div>
