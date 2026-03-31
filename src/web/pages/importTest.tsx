@@ -27,11 +27,18 @@ export default function ImportTestPage() {
   const [parsing, setParsing] = useState(false);
 
   async function readFileAsText(file: File): Promise<string> {
-    // DOCX — use mammoth to extract text
+    // DOCX — use mammoth to extract text (images become [IMAGE] placeholder)
     if (file.name.endsWith(".docx") || file.name.endsWith(".doc")) {
       const buf = await file.arrayBuffer();
-      const result = await mammoth.extractRawText({ arrayBuffer: buf });
-      return result.value;
+      const result = await mammoth.convertToHtml({ arrayBuffer: buf });
+      // Strip HTML tags but keep text, replace img tags with [IMAGE]
+      let html = result.value;
+      html = html.replace(/<img[^>]*>/gi, " [IMAGE] ");
+      html = html.replace(/<[^>]+>/g, "\n");
+      // Decode HTML entities
+      const temp = document.createElement("div");
+      temp.innerHTML = html;
+      return temp.textContent || temp.innerText || "";
     }
     // TXT, plain
     return new Promise((resolve, reject) => {
@@ -53,7 +60,7 @@ export default function ImportTestPage() {
 
     try {
       const text = await readFileAsText(file);
-      const parsed = method === "auto"
+      let parsed = method === "auto"
         ? parseFileContent(text, "auto")
         : manualParseText(text);
 
@@ -63,14 +70,44 @@ export default function ImportTestPage() {
         return;
       }
 
+      // Filter out questions with empty/image-only text or invalid answers
+      const before = parsed.length;
+      parsed = parsed.filter(q => {
+        // Skip if question text is empty, too short, or only contains image placeholder
+        const cleanText = q.text.replace(/\[IMAGE\]/g, "").replace(/[^\w\sа-яёА-ЯЁ]/g, "").trim();
+        if (cleanText.length < 3) return false;
+        // Remove [IMAGE] from question text
+        q.text = q.text.replace(/\[IMAGE\]/g, "").trim();
+        // Filter answers — remove empty or image-only answers
+        q.answers = q.answers.filter(a => {
+          const cleanA = a.text.replace(/\[IMAGE\]/g, "").replace(/[^\w\sа-яёА-ЯЁ]/g, "").trim();
+          return cleanA.length >= 1;
+        });
+        // Remove [IMAGE] from answer texts
+        q.answers = q.answers.map(a => ({ ...a, text: a.text.replace(/\[IMAGE\]/g, "").trim() }));
+        // Need at least 2 answers
+        return q.answers.length >= 2;
+      });
+
+      const skipped = before - parsed.length;
+
+      if (parsed.length === 0) {
+        toast.error("Все вопросы содержат изображения или пустые — добавить невозможно.");
+        setParsing(false);
+        return;
+      }
+
       setQuestions(parsed);
       setStep("preview");
-      toast.success(`Распознано ${parsed.length} вопросов!`);
+      if (skipped > 0) {
+        toast.warning(`Распознано ${parsed.length} вопросов. Пропущено ${skipped} (с изображениями или пустых).`);
+      } else {
+        toast.success(`Распознано ${parsed.length} вопросов!`);
+      }
     } catch (err) {
       toast.error("Ошибка чтения файла");
     }
     setParsing(false);
-    // Reset input
     if (fileRef.current) fileRef.current.value = "";
   }
 

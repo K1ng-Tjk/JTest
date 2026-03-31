@@ -3,7 +3,7 @@ import { useStore } from "../store/useStore";
 import { useT } from "../lib/i18n";
 import { api } from "../lib/api";
 import { useLocation } from "wouter";
-import { Trophy, ChevronRight, Clock, CheckCircle, BarChart2, RefreshCw, Send, Lock, Eye, EyeOff } from "lucide-react";
+import { Trophy, ChevronRight, Clock, CheckCircle, BarChart2, RefreshCw, Send, Lock, Eye, EyeOff, Download } from "lucide-react";
 import { toast } from "sonner";
 
 export default function RatingPage() {
@@ -248,25 +248,44 @@ export default function RatingPage() {
                     );
                   })()}
 
-                  {/* View answers for completed test */}
+                  {/* View + Download answers for completed test */}
                   {best && (
                     <>
-                      <button
-                        onClick={async () => {
-                          const isOpen = viewAnswersId === test.id;
-                          setViewAnswersId(isOpen ? null : test.id);
-                          if (!isOpen && !answersData[best.id]) {
-                            const res: any = await api.getSession(best.id);
-                            setAnswersData(prev => ({ ...prev, [best.id]: res }));
-                          }
-                        }}
-                        className="w-full py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 mb-2 transition-all active:scale-95"
-                        style={{ background: "rgba(96,165,250,0.1)", color: "#60A5FA" }}>
-                        {viewAnswersId === test.id ? <EyeOff size={12} /> : <Eye size={12} />}
-                        {viewAnswersId === test.id
-                          ? (lang === "ru" ? "Скрыть ответы" : "Пинҳон кардан")
-                          : (lang === "ru" ? "Посмотреть мои ответы" : "Ҷавобҳои ман")}
-                      </button>
+                      <div className="flex gap-2 mb-2">
+                        <button
+                          onClick={async () => {
+                            const isOpen = viewAnswersId === test.id;
+                            setViewAnswersId(isOpen ? null : test.id);
+                            if (!isOpen && !answersData[best.id]) {
+                              const res: any = await api.getSession(best.id);
+                              if (res?.session) {
+                                setAnswersData(prev => ({ ...prev, [best.id]: res }));
+                              }
+                            }
+                          }}
+                          className="flex-1 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all active:scale-95"
+                          style={{ background: "rgba(96,165,250,0.1)", color: "#60A5FA" }}>
+                          {viewAnswersId === test.id ? <EyeOff size={12} /> : <Eye size={12} />}
+                          {viewAnswersId === test.id ? (lang === "ru" ? "Скрыть" : "Пинҳон") : (lang === "ru" ? "Мои ответы" : "Ҷавобҳо")}
+                        </button>
+                        <button
+                          onClick={async () => {
+                            let data = answersData[best.id];
+                            if (!data) {
+                              const res: any = await api.getSession(best.id);
+                              if (res?.session) {
+                                setAnswersData(prev => ({ ...prev, [best.id]: res }));
+                                data = res;
+                              }
+                            }
+                            if (!data) return;
+                            downloadSessionTxt(data, test.title, lang);
+                          }}
+                          className="flex-1 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all active:scale-95"
+                          style={{ background: "var(--secondary)", color: "var(--muted-foreground)" }}>
+                          <Download size={12} /> {lang === "ru" ? "Скачать" : "Зеркашӣ"}
+                        </button>
+                      </div>
                       {viewAnswersId === test.id && answersData[best.id] && (
                         <SessionAnswerReview data={answersData[best.id]} lang={lang} />
                       )}
@@ -291,6 +310,44 @@ export default function RatingPage() {
       )}
     </div>
   );
+}
+
+function downloadSessionTxt(data: any, testTitle: string, lang: string) {
+  const session = data?.session;
+  const questions: any[] = data?.questions || [];
+  const answers: any[] = data?.answers || [];
+  if (!session) return;
+  let userAnswers: Record<string, string[]> = {};
+  try { userAnswers = JSON.parse(session.answers || "{}"); } catch { }
+
+  let txt = `${testTitle}\n`;
+  txt += `${lang === "ru" ? "Результат" : "Натиҷа"}: ${session.score}% (${session.correctAnswers}/${session.totalQuestions})\n`;
+  txt += "=".repeat(50) + "\n\n";
+
+  questions.forEach((q: any, idx: number) => {
+    const qAnswers = answers.filter((a: any) => a.questionId === q.id);
+    const correctIds = qAnswers.filter((a: any) => a.isCorrect).map((a: any) => a.id);
+    const selected = userAnswers[q.id] || [];
+    const isRight = q.type === "single"
+      ? selected.length === 1 && correctIds.includes(selected[0])
+      : correctIds.every((id: string) => selected.includes(id)) && selected.every((id: string) => correctIds.includes(id));
+
+    txt += `${idx + 1}. ${isRight ? "✓" : "✗"} ${q.text}\n`;
+    qAnswers.forEach((a: any) => {
+      const wasSel = selected.includes(a.id);
+      const prefix = a.isCorrect ? "  ✓" : wasSel ? "  ✗" : "  ○";
+      txt += `${prefix} ${a.text}\n`;
+    });
+    txt += "\n";
+  });
+
+  const blob = new Blob([txt], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${testTitle.replace(/[^\w\sа-яёА-ЯЁ]/gi, "")}.txt`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 function SessionAnswerReview({ data, lang }: { data: any; lang: string }) {

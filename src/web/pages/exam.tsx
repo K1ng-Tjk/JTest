@@ -3,7 +3,7 @@ import { useStore } from "../store/useStore";
 import { useT } from "../lib/i18n";
 import { api } from "../lib/api";
 import { useLocation } from "wouter";
-import { GraduationCap, Lock, CheckCircle, ChevronRight, RefreshCw, Send, Eye } from "lucide-react";
+import { GraduationCap, Lock, CheckCircle, ChevronRight, RefreshCw, Send, Eye, EyeOff, Download } from "lucide-react";
 import { toast } from "sonner";
 
 export default function ExamPage() {
@@ -18,6 +18,7 @@ export default function ExamPage() {
   const [reason, setReason] = useState("");
   const [loading, setLoading] = useState(true);
   const [viewAnswers, setViewAnswers] = useState<string | null>(null); // testId
+  const [answersCache, setAnswersCache] = useState<Record<string, any>>({}); // sessionId -> data
 
   useEffect(() => { loadData(); }, [user]);
 
@@ -196,22 +197,45 @@ export default function ExamPage() {
                     </div>
                   )}
 
-                  {/* View answers button */}
+                  {/* View + Download answers */}
                   {locked && session && (
-                    <button
-                      onClick={() => setViewAnswers(viewAnswers === exam.id ? null : exam.id)}
-                      className="w-full py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 mb-2 transition-all active:scale-95"
-                      style={{ background: "rgba(96,165,250,0.1)", color: "#60A5FA" }}>
-                      <Eye size={12} />
-                      {viewAnswers === exam.id
-                        ? (lang === "ru" ? "Скрыть ответы" : "Пинҳон кардан")
-                        : (lang === "ru" ? "Посмотреть ответы" : "Дидани ҷавобҳо")}
-                    </button>
-                  )}
-
-                  {/* Answer review */}
-                  {viewAnswers === exam.id && session && (
-                    <AnswerReview sessionId={session.id} lang={lang} />
+                    <>
+                      <div className="flex gap-2 mb-2">
+                        <button
+                          onClick={async () => {
+                            const isOpen = viewAnswers === exam.id;
+                            setViewAnswers(isOpen ? null : exam.id);
+                            if (!isOpen && !answersCache[session.id]) {
+                              const res: any = await api.getSession(session.id);
+                              if (res?.session) setAnswersCache(prev => ({ ...prev, [session.id]: res }));
+                            }
+                          }}
+                          className="flex-1 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all active:scale-95"
+                          style={{ background: "rgba(96,165,250,0.1)", color: "#60A5FA" }}>
+                          {viewAnswers === exam.id ? <EyeOff size={12} /> : <Eye size={12} />}
+                          {viewAnswers === exam.id ? (lang === "ru" ? "Скрыть" : "Пинҳон") : (lang === "ru" ? "Мои ответы" : "Ҷавобҳо")}
+                        </button>
+                        <button
+                          onClick={async () => {
+                            let data = answersCache[session.id];
+                            if (!data) {
+                              const res: any = await api.getSession(session.id);
+                              if (res?.session) {
+                                setAnswersCache(prev => ({ ...prev, [session.id]: res }));
+                                data = res;
+                              }
+                            }
+                            if (data) downloadExamTxt(data, exam.title, lang);
+                          }}
+                          className="flex-1 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all active:scale-95"
+                          style={{ background: "var(--secondary)", color: "var(--muted-foreground)" }}>
+                          <Download size={12} /> {lang === "ru" ? "Скачать" : "Зеркашӣ"}
+                        </button>
+                      </div>
+                      {viewAnswers === exam.id && answersCache[session.id] && (
+                        <AnswerReviewPanel data={answersCache[session.id]} lang={lang} />
+                      )}
+                    </>
                   )}
 
                   <button onClick={() => !locked && navigate(`/test/${exam.id}`)} disabled={locked}
@@ -233,35 +257,56 @@ export default function ExamPage() {
   );
 }
 
-function AnswerReview({ sessionId, lang }: { sessionId: string; lang: string }) {
-  const [data, setData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+function downloadExamTxt(data: any, testTitle: string, lang: string) {
+  const session = data?.session;
+  const questions: any[] = data?.questions || [];
+  const answers: any[] = data?.answers || [];
+  if (!session) return;
+  let userAnswers: Record<string, string[]> = {};
+  try { userAnswers = JSON.parse(session.answers || "{}"); } catch { }
 
-  useEffect(() => {
-    api.getSession(sessionId).then((res: any) => {
-      setData(res);
-      setLoading(false);
+  let txt = `${testTitle}\n`;
+  txt += `${lang === "ru" ? "Результат" : "Натиҷа"}: ${session.score}% (${session.correctAnswers}/${session.totalQuestions})\n`;
+  txt += "=".repeat(50) + "\n\n";
+
+  questions.forEach((q: any, idx: number) => {
+    const qAnswers = answers.filter((a: any) => a.questionId === q.id);
+    const correctIds = qAnswers.filter((a: any) => a.isCorrect).map((a: any) => a.id);
+    const selected = userAnswers[q.id] || [];
+    const isRight = q.type === "single"
+      ? selected.length === 1 && correctIds.includes(selected[0])
+      : correctIds.every((id: string) => selected.includes(id)) && selected.every((id: string) => correctIds.includes(id));
+
+    txt += `${idx + 1}. ${isRight ? "✓" : "✗"} ${q.text}\n`;
+    qAnswers.forEach((a: any) => {
+      const wasSel = selected.includes(a.id);
+      const prefix = a.isCorrect ? "  ✓" : wasSel ? "  ✗" : "  ○";
+      txt += `${prefix} ${a.text}\n`;
     });
-  }, [sessionId]);
+    txt += "\n";
+  });
 
-  if (loading) return (
-    <div className="flex justify-center py-4">
-      <div className="w-5 h-5 rounded-full border-2 animate-spin" style={{ borderColor: "var(--primary)", borderTopColor: "transparent" }} />
-    </div>
-  );
+  const blob = new Blob([txt], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const el = document.createElement("a");
+  el.href = url;
+  el.download = `${testTitle.replace(/[^\w\sа-яёА-ЯЁ]/gi, "")}.txt`;
+  el.click();
+  URL.revokeObjectURL(url);
+}
 
-  if (!data?.session) return null;
-
-  const session = data.session;
-  const questions: any[] = data.questions || [];
-  const answers: any[] = data.answers || [];
+function AnswerReviewPanel({ data, lang }: { data: any; lang: string }) {
+  const session = data?.session;
+  const questions: any[] = data?.questions || [];
+  const answers: any[] = data?.answers || [];
+  if (!session) return null;
   let userAnswers: Record<string, string[]> = {};
   try { userAnswers = JSON.parse(session.answers || "{}"); } catch { }
 
   return (
     <div className="mb-3 rounded-xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
       <div className="px-3 py-2 text-xs font-bold" style={{ background: "var(--secondary)", color: "var(--muted-foreground)" }}>
-        {lang === "ru" ? "Разбор ответов" : "Таҳлили ҷавобҳо"}
+        {lang === "ru" ? `Разбор ответов (${session.correctAnswers}/${session.totalQuestions})` : `Таҳлил (${session.correctAnswers}/${session.totalQuestions})`}
       </div>
       <div className="flex flex-col divide-y" style={{ borderColor: "var(--border)" }}>
         {questions.map((q: any, idx: number) => {
@@ -271,7 +316,6 @@ function AnswerReview({ sessionId, lang }: { sessionId: string; lang: string }) 
           const isRight = q.type === "single"
             ? selected.length === 1 && correctIds.includes(selected[0])
             : correctIds.every((id: string) => selected.includes(id)) && selected.every((id: string) => correctIds.includes(id));
-
           return (
             <div key={q.id} className="p-3" style={{ borderColor: "var(--border)" }}>
               <div className="flex items-start gap-2 mb-2">
@@ -289,9 +333,7 @@ function AnswerReview({ sessionId, lang }: { sessionId: string; lang: string }) 
                   else if (wasSel && !correct) color = "#EF4444";
                   return (
                     <div key={a.id} className="flex items-center gap-1.5">
-                      <span className="text-xs" style={{ color }}>
-                        {correct ? "●" : wasSel ? "○" : "·"}
-                      </span>
+                      <span className="text-xs" style={{ color }}>{correct ? "●" : wasSel ? "○" : "·"}</span>
                       <span className="text-xs" style={{ color }}>{a.text}</span>
                     </div>
                   );

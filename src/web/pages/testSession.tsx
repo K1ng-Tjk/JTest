@@ -344,7 +344,15 @@ function ResultScreen({ result, test, questions, selected, navigate, theme }: an
 
   return (
     <div data-theme={theme} className="flex flex-col min-h-screen" style={{ background: "var(--background)" }}>
-      <div className="flex-1 px-6 py-8 flex flex-col items-center justify-start">
+      {/* Back button */}
+      <div className="sticky top-0 z-10 px-4 pt-4 pb-2" style={{ background: "var(--background)" }}>
+        <button onClick={() => navigate(-1 as any)}
+          className="w-9 h-9 rounded-xl flex items-center justify-center"
+          style={{ background: "var(--secondary)" }}>
+          <ChevronLeft size={18} />
+        </button>
+      </div>
+      <div className="flex-1 px-6 pb-8 flex flex-col items-center justify-start">
         <div className="text-6xl mb-4">{passed ? "🎉" : "😔"}</div>
         <h2 className="text-2xl font-black mb-1" style={{ color: passed ? "var(--primary)" : "#EF4444" }}>
           {passed ? "Зачёт!" : "Не зачёт"}
