@@ -485,7 +485,8 @@ app.get("/api/messages", async (c) => {
     
     if (chatType === "general") {
       msgs = msgs.filter(m => m.chatType === "general" && !m.isDeleted);
-    } else if (chatType === "private" && userId && otherUserId) {
+    } else if (chatType === "private") {
+      if (!userId || !otherUserId) return c.json({ messages: [] }); // both required
       msgs = msgs.filter(m => 
         m.chatType === "private" && !m.isDeleted &&
         ((m.senderId === userId && m.receiverId === otherUserId) ||

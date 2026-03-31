@@ -157,7 +157,7 @@ export default function ProfilePage() {
                   <option value="female">{tr("auth.female")}</option>
                 </select>
               </div>
-              <Field label={tr("auth.birthDate")} value={form.birthDate} onChange={set("birthDate")} type="date" />
+              <Field label={tr("auth.birthDate")} value={form.birthDate} onChange={set("birthDate")} placeholder="ДД.ММ.ГГГГ" />
             </div>
             <Field label="Email" value={form.email} onChange={set("email")} type="email" />
           </div>
@@ -200,11 +200,11 @@ function InfoRow({ label, value }: any) {
   );
 }
 
-function Field({ label, value, onChange, type = "text" }: any) {
+function Field({ label, value, onChange, type = "text", placeholder }: any) {
   return (
     <div>
       <label className="text-xs font-medium block mb-1" style={{ color: "var(--muted-foreground)" }}>{label}</label>
-      <input type={type} value={value} onChange={onChange}
+      <input type={type} value={value} onChange={onChange} placeholder={placeholder}
         className="w-full rounded-xl px-3 py-2.5 text-sm border outline-none"
         style={{ background: "var(--input)", color: "var(--foreground)", borderColor: "var(--border)" }} />
     </div>

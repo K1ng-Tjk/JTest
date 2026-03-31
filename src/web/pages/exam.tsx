@@ -20,6 +20,12 @@ export default function ExamPage() {
 
   useEffect(() => { loadData(); }, [user]);
 
+  // Auto-reload every 30s to pick up admin-approved retakes
+  useEffect(() => {
+    const interval = setInterval(() => { if (user) loadData(); }, 30000);
+    return () => clearInterval(interval);
+  }, [user]);
+
   async function loadData() {
     if (!user) return;
     setLoading(true);

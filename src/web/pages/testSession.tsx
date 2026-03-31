@@ -25,7 +25,7 @@ export default function TestSessionPage() {
   const [current, setCurrent] = useState(0);
   const [selected, setSelected] = useState<Record<string, string[]>>({});
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const [timeLeft, setTimeLeft] = useState<number>(DEFAULT_TIME);
+  const [timeLeft, setTimeLeft] = useState<number | null>(DEFAULT_TIME);
   const [finished, setFinished] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -40,9 +40,9 @@ export default function TestSessionPage() {
   }, [testId, user]);
 
   useEffect(() => {
-    if (finished || loading) return;
+    if (finished || loading || timeLeft === null) return;
     if (timeLeft <= 0) { finishTest(); return; }
-    const t = setTimeout(() => setTimeLeft(tl => tl - 1), 1000);
+    const t = setTimeout(() => setTimeLeft(tl => (tl !== null ? tl - 1 : null)), 1000);
     return () => clearTimeout(t);
   }, [timeLeft, finished, loading]);
 
@@ -79,7 +79,7 @@ export default function TestSessionPage() {
 
     // Время: тренировка — без лимита (null), остальные — 30 мин или кастом
     const customTime = res.test.timeLimit ? res.test.timeLimit * 60 : DEFAULT_TIME;
-    setTimeLeft(isTraining ? 0 : customTime); // 0 = нет таймера для тренировки
+    setTimeLeft(isTraining ? null : customTime); // null = нет таймера для тренировки
 
     const sessRes: any = await api.startSession(user!.id, testId!);
     if (sessRes.sessionId) setSessionId(sessRes.sessionId);
@@ -147,9 +147,9 @@ export default function TestSessionPage() {
   if (!q) return null;
 
   const isTraining = test?.type === "training";
-  const hasTimer = !isTraining && timeLeft > 0;
-  const mins = Math.floor(timeLeft / 60);
-  const secs = timeLeft % 60;
+  const hasTimer = timeLeft !== null;
+  const mins = timeLeft !== null ? Math.floor(timeLeft / 60) : 0;
+  const secs = timeLeft !== null ? timeLeft % 60 : 0;
   const progress = ((current + 1) / questions.length) * 100;
   const isAnswered = !!answered[q.id];
 
@@ -172,8 +172,8 @@ export default function TestSessionPage() {
           {hasTimer ? (
             <div className="px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1"
               style={{
-                background: timeLeft < 60 ? "rgba(239,68,68,0.15)" : "var(--secondary)",
-                color: timeLeft < 60 ? "#EF4444" : "var(--foreground)"
+                background: (timeLeft !== null && timeLeft < 60) ? "rgba(239,68,68,0.15)" : "var(--secondary)",
+                color: (timeLeft !== null && timeLeft < 60) ? "#EF4444" : "var(--foreground)"
               }}>
               <Clock size={12} /> {mins}:{secs.toString().padStart(2, "0")}
             </div>
@@ -262,7 +262,7 @@ export default function TestSessionPage() {
 
       {/* Question number grid — прыгать по вопросам */}
       <div className="px-4 pb-2">
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap gap-1.5 justify-center">
           {questions.map((_, idx) => {
             const qid = questions[idx].id;
             const isConf = !!answered[qid];   // подтверждён

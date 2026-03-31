@@ -41,7 +41,7 @@ export default function RatingPage() {
   function getBestSession(testId: string) {
     const ts = sessions.filter(s => s.testId === testId);
     if (!ts.length) return null;
-    return ts.reduce((best, s) => (s.score > best.score ? s : best));
+    return ts.reduce((best, s) => (parseFloat(s.score) > parseFloat(best.score) ? s : best));
   }
 
   function getRequestStatus(testId: string) {
@@ -57,11 +57,12 @@ export default function RatingPage() {
     setRequesting(null); setReason(""); loadData();
   }
 
-  function getGrade(score: number) {
-    if (score >= 90) return "A";
-    if (score >= 80) return "B";
-    if (score >= 70) return "C";
-    if (score >= 60) return "D";
+  function getGrade(score: number | string) {
+    const s = parseFloat(String(score));
+    if (s >= 90) return "A";
+    if (s >= 80) return "B";
+    if (s >= 70) return "C";
+    if (s >= 60) return "D";
     return "F";
   }
 
@@ -132,7 +133,7 @@ export default function RatingPage() {
         <div className="flex flex-col gap-3">
           {tests.map(test => {
             const best = getBestSession(test.id);
-            const passed = best && best.score >= (test.passingScore || 60);
+            const passed = best && parseFloat(best.score) >= (test.passingScore || 60);
 
             return (
               <div key={test.id} className="rounded-2xl overflow-hidden card-glow"
