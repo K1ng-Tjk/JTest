@@ -92,7 +92,7 @@ export default function ExamPage() {
         <div className="flex flex-col gap-3">
           {exams.map(exam => {
             const { locked, session } = getStatus(exam.id, exam.passingScore || 60);
-            const passed = session && session.score >= (exam.passingScore || 60);
+            const passed = session && parseFloat(session.score) >= (exam.passingScore || 60);
             const reqStatus = getRequestStatus(exam.id);
             const isRequesting = requesting === exam.id;
 

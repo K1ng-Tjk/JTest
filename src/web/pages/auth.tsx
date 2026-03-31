@@ -119,7 +119,7 @@ export default function AuthPage() {
                       <option value="female">{tr("auth.female")}</option>
                     </select>
                   </div>
-                  <Field label={tr("auth.birthDate")} value={form.birthDate} onChange={set("birthDate")} type="date" />
+                  <Field label={tr("auth.birthDate")} value={form.birthDate} onChange={set("birthDate")} placeholder="ДД.ММ.ГГГГ" />
                 </div>
                 <Field label={tr("auth.email")} value={form.email} onChange={set("email")} type="email" />
               </>

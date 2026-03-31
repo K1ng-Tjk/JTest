@@ -129,7 +129,7 @@ export default function TestSessionPage() {
     await api.completeSession(sessionId, {
       score, totalQuestions: questions.length, correctAnswers: correct, answers: selected,
     });
-    setResult({ score, correct, total: questions.length, passed: score >= (test?.passingScore || 60) });
+    setResult({ score, correct, total: questions.length, passed: score >= parseFloat(String(test?.passingScore || 60)) });
   }
 
   if (loading) return (
@@ -262,7 +262,7 @@ export default function TestSessionPage() {
 
       {/* Question number grid — прыгать по вопросам */}
       <div className="px-4 pb-2">
-        <div className="flex flex-wrap gap-1.5 justify-center">
+        <div className="flex flex-wrap gap-1 justify-center">
           {questions.map((_, idx) => {
             const qid = questions[idx].id;
             const isConf = !!answered[qid];   // подтверждён
@@ -270,7 +270,7 @@ export default function TestSessionPage() {
             const isCur = idx === current;
             return (
               <button key={idx} onClick={() => setCurrent(idx)}
-                className="w-8 h-8 rounded-lg text-xs font-bold transition-all active:scale-90"
+                className="w-7 h-7 rounded-md text-[11px] font-bold transition-all active:scale-90"
                 style={{
                   background: isCur
                     ? "var(--primary)"
