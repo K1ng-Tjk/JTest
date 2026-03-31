@@ -456,6 +456,22 @@ app.get("/api/sessions", async (c) => {
   }
 });
 
+// GET single session with questions+answers for review
+app.get("/api/sessions/:id", async (c) => {
+  try {
+    const id = c.req.param("id");
+    const d = db(c);
+    const session = await d.select().from(schema.testSessions).where(eq(schema.testSessions.id, id)).get();
+    if (!session) return c.json({ error: "Not found" }, 404);
+    const questions = await d.select().from(schema.questions).where(eq(schema.questions.testId, session.testId));
+    const answers = await d.select().from(schema.answers);
+    const filteredAnswers = answers.filter(a => questions.some(q => q.id === a.questionId));
+    return c.json({ session, questions, answers: filteredAnswers });
+  } catch (e: any) {
+    return c.json({ error: e.message }, 500);
+  }
+});
+
 // ===================== RATINGS =====================
 
 app.get("/api/ratings", async (c) => {

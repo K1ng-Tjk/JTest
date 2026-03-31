@@ -1,7 +1,6 @@
-const CACHE_NAME = "jtest-v1";
-const STATIC_ASSETS = ["/", "/manifest.json", "/logo.png"];
+const CACHE_NAME = "jtest-v4";
+const STATIC_ASSETS = ["/", "/manifest.json", "/logo.png", "/favicon.ico"];
 
-// Install — cache static assets
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS))
@@ -9,7 +8,6 @@ self.addEventListener("install", (event) => {
   self.skipWaiting();
 });
 
-// Activate — clean old caches
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
@@ -19,11 +17,15 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
-// Fetch — network first, fallback to cache
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
+});
+
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
 
-  // API calls — network only (no cache)
   if (url.pathname.startsWith("/api/")) {
     event.respondWith(
       fetch(event.request).catch(() =>
@@ -36,7 +38,6 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Static + pages — cache first, then network
   event.respondWith(
     caches.match(event.request).then((cached) => {
       const networkFetch = fetch(event.request)

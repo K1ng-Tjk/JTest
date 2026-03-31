@@ -3,7 +3,7 @@ import { useStore } from "../store/useStore";
 import { useT } from "../lib/i18n";
 import { api } from "../lib/api";
 import { useLocation } from "wouter";
-import { Trophy, ChevronRight, Clock, CheckCircle, BarChart2, RefreshCw, Send, Lock } from "lucide-react";
+import { Trophy, ChevronRight, Clock, CheckCircle, BarChart2, RefreshCw, Send, Lock, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 
 export default function RatingPage() {
@@ -18,6 +18,8 @@ export default function RatingPage() {
   const [loading, setLoading] = useState(true);
   const [requesting, setRequesting] = useState<string | null>(null);
   const [reason, setReason] = useState("");
+  const [viewAnswersId, setViewAnswersId] = useState<string | null>(null);
+  const [answersData, setAnswersData] = useState<Record<string, any>>({});
 
   useEffect(() => { loadData(); }, [tab]);
 
@@ -246,6 +248,31 @@ export default function RatingPage() {
                     );
                   })()}
 
+                  {/* View answers for completed test */}
+                  {best && (
+                    <>
+                      <button
+                        onClick={async () => {
+                          const isOpen = viewAnswersId === test.id;
+                          setViewAnswersId(isOpen ? null : test.id);
+                          if (!isOpen && !answersData[best.id]) {
+                            const res: any = await api.getSession(best.id);
+                            setAnswersData(prev => ({ ...prev, [best.id]: res }));
+                          }
+                        }}
+                        className="w-full py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 mb-2 transition-all active:scale-95"
+                        style={{ background: "rgba(96,165,250,0.1)", color: "#60A5FA" }}>
+                        {viewAnswersId === test.id ? <EyeOff size={12} /> : <Eye size={12} />}
+                        {viewAnswersId === test.id
+                          ? (lang === "ru" ? "Скрыть ответы" : "Пинҳон кардан")
+                          : (lang === "ru" ? "Посмотреть мои ответы" : "Ҷавобҳои ман")}
+                      </button>
+                      {viewAnswersId === test.id && answersData[best.id] && (
+                        <SessionAnswerReview data={answersData[best.id]} lang={lang} />
+                      )}
+                    </>
+                  )}
+
                   <button onClick={() => !best && navigate(`/test/${test.id}`)}
                     disabled={!!best}
                     className="w-full py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-all active:scale-95"
@@ -262,6 +289,58 @@ export default function RatingPage() {
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+function SessionAnswerReview({ data, lang }: { data: any; lang: string }) {
+  const session = data?.session;
+  const questions: any[] = data?.questions || [];
+  const answers: any[] = data?.answers || [];
+  if (!session) return null;
+  let userAnswers: Record<string, string[]> = {};
+  try { userAnswers = JSON.parse(session.answers || "{}"); } catch { }
+
+  return (
+    <div className="mb-3 rounded-xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
+      <div className="px-3 py-2 text-xs font-bold" style={{ background: "var(--secondary)", color: "var(--muted-foreground)" }}>
+        {lang === "ru" ? `Мои ответы (${session.correctAnswers}/${session.totalQuestions} правильно)` : `Ҷавобҳои ман (${session.correctAnswers}/${session.totalQuestions})`}
+      </div>
+      <div className="flex flex-col divide-y" style={{ borderColor: "var(--border)" }}>
+        {questions.map((q: any, idx: number) => {
+          const qAnswers = answers.filter((a: any) => a.questionId === q.id);
+          const correctIds = qAnswers.filter((a: any) => a.isCorrect).map((a: any) => a.id);
+          const selected = userAnswers[q.id] || [];
+          const isRight = q.type === "single"
+            ? selected.length === 1 && correctIds.includes(selected[0])
+            : correctIds.every((id: string) => selected.includes(id)) && selected.every((id: string) => correctIds.includes(id));
+          return (
+            <div key={q.id} className="p-3">
+              <div className="flex items-start gap-2 mb-2">
+                <span className="text-xs font-bold flex-shrink-0 mt-0.5" style={{ color: isRight ? "#34D399" : "#EF4444" }}>
+                  {isRight ? "✓" : "✗"} {idx + 1}.
+                </span>
+                <p className="text-xs leading-relaxed">{q.text}</p>
+              </div>
+              <div className="flex flex-col gap-1 pl-4">
+                {qAnswers.map((a: any) => {
+                  const wasSel = selected.includes(a.id);
+                  const correct = a.isCorrect;
+                  let color = "var(--muted-foreground)";
+                  if (correct) color = "#34D399";
+                  else if (wasSel && !correct) color = "#EF4444";
+                  return (
+                    <div key={a.id} className="flex items-center gap-1.5">
+                      <span className="text-xs" style={{ color }}>{correct ? "●" : wasSel ? "○" : "·"}</span>
+                      <span className="text-xs" style={{ color }}>{a.text}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

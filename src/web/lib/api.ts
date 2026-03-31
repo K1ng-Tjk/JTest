@@ -40,6 +40,7 @@ export const api = {
     const qs = params ? "?" + new URLSearchParams(params).toString() : "";
     return request("GET", `/sessions${qs}`);
   },
+  getSession: (id: string) => request("GET", `/sessions/${id}`),
 
   // Ratings
   getRatings: (type: string) => request("GET", `/ratings?type=${type}`),

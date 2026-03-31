@@ -3,7 +3,8 @@ import { useStore } from "../store/useStore";
 import { useT } from "../lib/i18n";
 import { api } from "../lib/api";
 import { useLocation } from "wouter";
-import { Plus, Shield, Wifi, WifiOff, FileUp } from "lucide-react";
+import { Plus, Shield, Wifi, WifiOff, FileUp, RefreshCw } from "lucide-react";
+import { toast } from "sonner";
 
 export default function HomePage() {
   const { user, lang, theme, isOnline } = useStore();
@@ -42,6 +43,16 @@ export default function HomePage() {
             ? <Wifi size={15} style={{ color: "#34D399" }} />
             : <WifiOff size={15} style={{ color: "#EF4444" }} />
           }
+          <button
+            onClick={() => {
+              window.location.reload();
+              toast.info("Обновление...");
+            }}
+            className="w-9 h-9 rounded-xl flex items-center justify-center transition-all active:scale-90"
+            style={{ background: "var(--secondary)" }}
+            title="Обновить">
+            <RefreshCw size={15} style={{ color: "var(--muted-foreground)" }} />
+          </button>
           {(user.role === "admin" || user.role === "manager") && (
             <button onClick={() => navigate("/admin")}
               className="w-9 h-9 rounded-xl flex items-center justify-center"
